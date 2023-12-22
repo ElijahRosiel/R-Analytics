@@ -1,5 +1,6 @@
 ---
-title: "RWorksheet#5_group(Arcenas_Cabana_Castigador_Deluna_Parrenas)"
+
+title: "RWorksheet#5_group4(Arcenas_Cabana_Castigador_Deluna_Parrenas)"
 output: html_document
 date: "2023-11-29"
 ---
@@ -8,7 +9,6 @@ date: "2023-11-29"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-#1. Each group needs to extract the top 50 tv shows in Imdb.com. It will include the rank, the title of the tv show, tv rating, the number of people who voted, the number of episodes, the year it was released.
 ```{r}
 library(rvest)
 library(httr)
@@ -22,97 +22,175 @@ session
 ```
 
 ```{r}
-titleList <- scrape(session) %>%
-  html_nodes('h3.ipc-title__text') %>% 
-  html_text
+#1. Each group needs to extract the top 50 tv shows in Imdb.com. It will include the rank, the title of the tv show, tv rating, the number of people who voted, the number of episodes, the year it was released.
 
-
-rating  <- scrape(session) %>%
-  html_nodes('span.ipc-rating-star--imdb')%>%
-  html_text
-
-num_epi_released <- scrape(session) %>%
-  html_nodes('div.sc-479faa3c-7.jXgjdT.cli-title-metadata')%>%
-  html_text
-
-```
-
-
-```{r}
-titleList_sub <- as.data.frame(titleList[2:51])
-
-ratings <- as.data.frame(rating[1:50])
-
-numOfepi <- as.data.frame(num_epi_released[1:50])
-
-head(titleList_sub)
-tail(titleList_sub)
-head(ratings)
-tail(ratings)
-str(num_epi_released)
-colnames(num_epi_released)
-```
-
-```{r}
-scrape_df <- data.frame(titleList_sub,ratings,numOfepi)
-names(scrape_df) <- c("Title","Ratings")
-
-```
-
-# Number 2 Arcenas
-```{r}
+#scraping title and ranks
 library(rvest)
-library(httr)
-library(dplyr)
-library(polite)
+title <- scrape(session)%>%
+html_nodes("h3.ipc-title__text")%>%
+html_text
+title
+
+#subset title
+subList <- as.data.frame(title[2:51])
+
+colnames(subList) <- "ranks"
+split_ranks <- strsplit(as.character(subList$ranks), ".", fixed = TRUE )
+split_ranks <- data.frame(do.call(rbind, split_ranks))
+
+#remove duplicate columns
+split_ranks <- split_ranks[-c(3:5)]
+
+#rename columns
+colnames(split_ranks) <- c("ranks","title") 
+split_ranks
+
+#make into a data frame
+df_ranks <- as.data.frame(split_ranks)
+df_ranks
+```
+
+```{r}
+#scraping the imdb rating
+rate <- scrape(session) %>%
+  html_nodes("span.ipc-rating-star--imdb")  %>%
+html_attr("aria-label")
+rate
+
+#subset the scraped data
+sub_rate<- as.data.frame(rate[2:51])
+head(sub_rate)
+
+#renaming the column
+colnames(sub_rate) <- "rate"
+split_rate <- strsplit(as.character(sub_rate$rate),".",fixed = TRUE)
+split_rate <- data.frame(do.call(rbind,split_rate))
+
+#extracting only the ratings
+ratings<- str_extract(sub_rate$rate, "\\d+\\.\\d+")
+ratings
+
+#make this into a data frame
+rates <- as.data.frame(ratings)
+```
+
+```{r}
+#scraping vote counts
+votecount <- scrape(session) %>%
+  html_nodes("span.ipc-rating-star--voteCount") %>%
+  html_text
+
+#subset the scraped data of vote counts
+sub_vote <- as.data.frame(votecount[1:50])
+
+#renaming columns
+colnames(sub_vote) <- "voteCount"
+split_voteCount <- strsplit(as.character(sub_vote$voteCount), ".", fixed = TRUE )
+split_voteCount <- data.frame(do.call(rbind, sub_vote))
+split_voteCount
+```
+
+```{r}
+#Scrape the year and episodes
+episodes <- read_html(url)
+
+# Extract the HTML structure of the div class
+div_elements <- episodes %>%
+  html_nodes("div.sc-43986a27-7.dBkaPT.cli-title-metadata")
+
+# Create an empty list to store the extracted information
+epi_list <- list()
+
+# Loop through each div element
+for (i in 1:min(length(div_elements), 50)) {
+  # Extract all span elements within each div
+  spans <- div_elements[i] %>%
+    html_nodes("span.sc-43986a27-8.jHYIIK.cli-title-metadata-item")
+
+  # Extract and store the text from each span
+  span_texts <- sapply(spans, function(span) {
+    span_text <- span %>% html_text()
+    return(span_text)
+  })
+
+  # Store the extracted information in the results list
+  epi_list[[i]] <- span_texts
+}
+
+# Convert the results list to a data frame 
+epi_df <- do.call(rbind.data.frame, epi_list)
+
+# Set column names based on the extracted spans 
+colnames(epi_df) <- paste0("span_", 1:ncol(epi_df))
+
+newcol <- c("year", "episodes", "guidance")
+colnames(epi_df) <- newcol
+
+# Removing the third column
+epi_df <- epi_df[, -which(names(epi_df) == "guidance")]
+
+# Print or return the results
+print(epi_df)
+
+episodes_df <- as.data.frame(epi_df)
+```
+
+```{r}
+# Combine in one data frame
+newData <- data.frame(
+  df_ranks,
+ rates,
+  split_voteCount = sub_vote,
+  episodes_df
+
+)
+newData
+```
+
+```{r}
+#2. From the 50 tv shows, select at least 5 tv shows to scrape the user reviews that will include the reviewer’s name, date of reviewed, user rating, title of the review, and text reviews.
 
 # 1. Breaking Bad
-
 url <- "https://www.imdb.com/title/tt0903747/reviews?ref_=tt_urv"
-session <- bow(url, user_agent = "Educational")
-session
 webpage <- read_html(url)
 
 TitleShowBB <- c("Breaking Bad", "Breaking Bad", "Breaking Bad", "Breaking Bad", "Breaking Bad", 
 		 "Breaking Bad", "Breaking Bad", "Breaking Bad", "Breaking Bad", "Breaking Bad", 
 		 "Breaking Bad", "Breaking Bad", "Breaking Bad", "Breaking Bad", "Breaking Bad", 
+		 "Breaking Bad", "Breaking Bad", "Breaking Bad", "Breaking Bad", "Breaking Bad", 
 		 "Breaking Bad", "Breaking Bad", "Breaking Bad", "Breaking Bad", "Breaking Bad")
-
 DisplayNameBB <- webpage %>%
   html_nodes("span.display-name-link") %>%
   html_text()
-  head(20)
 
 DateOfReviewBB <- webpage %>%
   html_nodes("span.review-date") %>%
   html_text()
-  head(20)
-  
+
 RatingOfReviewBB <- webpage %>%
   html_nodes("span.rating-other-user-rating") %>%
   html_text()
-  head(20)
-  
+ 
 ReviewTitleBB <- webpage %>%
   html_nodes("a.title") %>%
   html_text()
-  head(20)
-  
+
 ReviewTextBB <- webpage %>%
   html_nodes("div.text.show-more__control") %>%
   html_text()
-  head(20)
+
+TitleBB <- as.data.frame (TitleShowBB)
+DisplayNemBB <- as.data.frame (DisplayNameBB)
+DateOfRevBB <- as.data.frame (DateOfReviewBB)
+RateOfRevBB <- as.data.frame (RatingOfReviewBB)
+RevTitleBB <- as.data.frame (ReviewTitleBB)
+RevTextBB <- as.data.frame (ReviewTextBB)
 ```
 
 ```{r}
 # 2. Planet Earth II
 
-url <- "https://www.imdb.com/title/tt5491994/reviews?ref_=tt_urv"
-session <- bow(url, user_agent = "Educational")
-session
-webpage <- read_html(url)
-
-TitleShowPE2 <- c(
+TitleShowPE2 <- c("Planet Earth II", "Planet Earth II", "Planet Earth II", "Planet Earth II", "Planet Earth II", 
 	          "Planet Earth II", "Planet Earth II", "Planet Earth II", "Planet Earth II", "Planet Earth II", 
 	          "Planet Earth II", "Planet Earth II", "Planet Earth II", "Planet Earth II", "Planet Earth II",
 	          "Planet Earth II", "Planet Earth II", "Planet Earth II", "Planet Earth II", "Planet Earth II",
@@ -122,38 +200,35 @@ TitleShowPE2 <- c(
 DisplayNamePE2 <- webpage %>%
   html_nodes("span.display-name-link") %>%
   html_text()
-  head(20)
-  
+
 DateOfReviewPE2 <- webpage %>%
   html_nodes("span.review-date") %>%
   html_text()
-  head(20)
-  
+
 RatingOfReviewPE2 <- webpage %>%
   html_nodes("span.rating-other-user-rating") %>%
   html_text()
-  head(20)
-  
+ 
 ReviewTitlePE2 <- webpage %>%
   html_nodes("a.title") %>%
   html_text()
-  head(20)
-  
+
 ReviewTextPE2 <- webpage %>%
   html_nodes("div.text.show-more__control") %>%
   html_text()
-  head(20)
-``` 
+
+TitlePE2 <- as.data.frame (TitleShowPE2)
+DisplayNemPE2 <- as.data.frame (DisplayNamePE2)
+DateOfRevPE2 <- as.data.frame (DateOfReviewPE2)
+RateOfRevPE2 <- as.data.frame (RatingOfReviewPE2)
+RevTitlePE2 <- as.data.frame (ReviewTitlePE2)
+RevTextPE2 <- as.data.frame (ReviewTextPE2)
+```
 
 ```{r}
 # 3.Planet Earth
 
-url <- "https://www.imdb.com/title/tt0795176/reviews?ref_=tt_urv"
-session <- bow(url, user_agent = "Educational")
-session
-webpage <- read_html(url)
-
-TitleShowPE <- c(
+TitleShowPE <- c("Planet Earth", "Planet Earth", "Planet Earth", "Planet Earth", "Planet Earth", 
 		 "Planet Earth", "Planet Earth", "Planet Earth", "Planet Earth", "Planet Earth", 
 		 "Planet Earth", "Planet Earth", "Planet Earth", "Planet Earth", "Planet Earth", 
 		 "Planet Earth", "Planet Earth", "Planet Earth", "Planet Earth", "Planet Earth", 
@@ -162,38 +237,35 @@ TitleShowPE <- c(
 DisplayNamePE <- webpage %>%
   html_nodes("span.display-name-link") %>%
   html_text()
-  head(20)
-  
+
 DateOfReviewPE <- webpage %>%
   html_nodes("span.review-date") %>%
   html_text()
-  head(20)
-  
+
 RatingOfReviewPE <- webpage %>%
   html_nodes("span.rating-other-user-rating") %>%
   html_text()
-  head(20)
-   
+ 
 ReviewTitlePE <- webpage %>%
   html_nodes("a.title") %>%
   html_text()
-  head(20)
-  
+
 ReviewTextPE <- webpage %>%
   html_nodes("div.text.show-more__control") %>%
   html_text()
-  head(20)
-```  
+
+TitlePE <- as.data.frame (TitleShowPE)
+DisplayNemPE <- as.data.frame (DisplayNamePE)
+DateOfRevPE <- as.data.frame (DateOfReviewPE)
+RateOfRevPE <- as.data.frame (RatingOfReviewPE)
+RevTitlePE <- as.data.frame (ReviewTitlePE)
+RevTextPE <- as.data.frame (ReviewTextPE)
+```
 
 ```{r}
 # 4. Chernobyl
 
-url <- "https://www.imdb.com/title/tt7366338/reviews?ref_=tt_urv"
-session <- bow(url, user_agent = "Educational")
-session
-webpage <- read_html(url)
-
-TitleShowCher <- c( 
+TitleShowCher <- c("Chernobyl", "Chernobyl", "Chernobyl", "Chernobyl", "Chernobyl", 
 		   "Chernobyl", "Chernobyl", "Chernobyl", "Chernobyl", "Chernobyl", 
 		   "Chernobyl", "Chernobyl", "Chernobyl", "Chernobyl", "Chernobyl", 
 		   "Chernobyl", "Chernobyl", "Chernobyl", "Chernobyl", "Chernobyl", 
@@ -202,38 +274,36 @@ TitleShowCher <- c(
 DisplayNameCher <- webpage %>%
   html_nodes("span.display-name-link") %>%
   html_text()
-  head(20)
-  
+
 DateOfReviewCher <- webpage %>%
   html_nodes("span.review-date") %>%
   html_text()
-  head(20)
-  
+
 RatingOfReviewCher <- webpage %>%
   html_nodes("span.rating-other-user-rating") %>%
   html_text()
-  head(20)
-   
+ 
 ReviewTitleCher <- webpage %>%
   html_nodes("a.title") %>%
   html_text()
-  head(20)
-  
+
 ReviewTextCher <- webpage %>%
   html_nodes("div.text.show-more__control") %>%
   html_text()
-  head(20)
-```  
+
+TitleCher <- as.data.frame (TitleShowCher)
+DisplayNemCher <- as.data.frame (DisplayNameCher)
+DateOfRevCher <- as.data.frame (DateOfReviewCher)
+RateOfRevCher <- as.data.frame (RatingOfReviewCher)
+RevTitleCher <- as.data.frame (ReviewTitleCher)
+RevTextCher <- as.data.frame (ReviewTextCher)
+```
 
 ```{r}
 # 5. Avatar: The Last Airbender
 
-url <- "https://www.imdb.com/title/tt0417299/reviews?ref_=tt_urv"
-session <- bow(url, user_agent = "Educational")
-session
-webpage <- read_html(url)
-
 TitleShowATLA <- c("Avatar: The Last Airbender", "Avatar: The Last Airbender", "Avatar: The Last Airbender", "Avatar: The Last Airbender", "Avatar: The Last Airbender", 
+                   "Avatar: The Last Airbender", "Avatar: The Last Airbender", "Avatar: The Last Airbender", "Avatar: The Last Airbender", "Avatar: The Last Airbender", 
                    "Avatar: The Last Airbender", "Avatar: The Last Airbender", "Avatar: The Last Airbender", "Avatar: The Last Airbender", "Avatar: The Last Airbender", 
                    "Avatar: The Last Airbender", "Avatar: The Last Airbender", "Avatar: The Last Airbender", "Avatar: The Last Airbender", "Avatar: The Last Airbender", 
                    "Avatar: The Last Airbender", "Avatar: The Last Airbender", "Avatar: The Last Airbender", "Avatar: The Last Airbender", "Avatar: The Last Airbender")
@@ -241,32 +311,35 @@ TitleShowATLA <- c("Avatar: The Last Airbender", "Avatar: The Last Airbender", "
 DisplayNameATLA <- webpage %>%
   html_nodes("span.display-name-link") %>%
   html_text()
-  head(20)
-  
+
 DateOfReviewATLA <- webpage %>%
   html_nodes("span.review-date") %>%
   html_text()
-  head(20)
-  
+
 RatingOfReviewATLA <- webpage %>%
   html_nodes("span.rating-other-user-rating") %>%
   html_text()
-  head(20)
-  
+ 
 ReviewTitleATLA <- webpage %>%
   html_nodes("a.title") %>%
   html_text()
-  head(20)
-  
+
 ReviewTextATLA <- webpage %>%
   html_nodes("div.text.show-more__control") %>%
   html_text()
-  head(20)
-```  
+
+TitleATLA <- as.data.frame (TitleShowATLA)
+DisplayNemATLA<- as.data.frame (DisplayNameATLA)
+DateOfRevATLA <- as.data.frame (DateOfReviewATLA)
+RateOfRevATLA <- as.data.frame (RatingOfReviewATLA)
+RevTitleATLA <- as.data.frame (ReviewTitleATLA)
+RevTextATLA <- as.data.frame (ReviewTextATLA)
+```
 
 ```{r}
+# ...
 
-
+# Combine the results for Breaking Bad
 BreakingBad <- data.frame(
   Title = TitleShowBB[1:20],
   DisplayName = DisplayNameBB[1:20],
@@ -276,7 +349,9 @@ BreakingBad <- data.frame(
   Review_Text = ReviewTextBB[1:20]
 )
 
+# Repeat the same structure for the other shows (Planet Earth II, Planet Earth, Chernobyl, Avatar: The Last Airbender)
 
+# Combine the results for Planet Earth II
 PlanetEarthII <- data.frame(
   Title = TitleShowPE2[1:20],
   DisplayName = DisplayNamePE2[1:20],
@@ -286,7 +361,7 @@ PlanetEarthII <- data.frame(
   Review_Text = ReviewTextPE2[1:20]
 )
 
-
+# Combine the results for Planet Earth
 PlanetEarth <- data.frame(
   Title = TitleShowPE[1:20],
   DisplayName = DisplayNamePE[1:20],
@@ -296,7 +371,7 @@ PlanetEarth <- data.frame(
   Review_Text = ReviewTextPE[1:20]
 )
 
-
+# Combine the results for Chernobyl
 Chernobyl <- data.frame(
   Title = TitleShowCher[1:20],
   DisplayName = DisplayNameCher[1:20],
@@ -306,7 +381,7 @@ Chernobyl <- data.frame(
   Review_Text = ReviewTextCher[1:20]
 )
 
-
+# Combine the results for Avatar: The Last Airbender
 Avatar <- data.frame(
   Title = TitleShowATLA[1:20],
   DisplayName = DisplayNameATLA[1:20],
@@ -316,8 +391,32 @@ Avatar <- data.frame(
   Review_Text = ReviewTextATLA[1:20]
 )
 
-
+# Combine all shows into a single data frame
 All_Shows_Reviews <- rbind(BreakingBad, PlanetEarthII, PlanetEarth, Chernobyl, Avatar)
 
 View(All_Shows_Reviews)
+
+```
+
+```{r}
+#3. Create a time series graph for the tv shows released by year. Which year has the most number of tv shows released?
+library(ggplot2)
+ggplot(episodes_df, 
+       aes(x = year)) +
+  geom_bar(stat = "count", fill = "purple") +
+  labs(title = "TV Shows Released by Year",
+       x = "Release Year",
+       y = "Number of TV Shows Released") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+# Find the year with the most TV shows released
+mostTvshow <- episodes_df %>%
+  group_by(year) %>%
+  summarise(total_shows = n())
+
+most_year <- mostTvshow$year[which.max(mostTvshow$total_shows)]
+
+cat("The year with the most TV shows released is ", most_year)
+
 ```
