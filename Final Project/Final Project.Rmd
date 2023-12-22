@@ -1,0 +1,61 @@
+---
+title: "Final Project"
+author: "Group 4"
+date: "2023-12-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(rvest)
+library(httr)
+library(dplyr)
+library(polite)
+```
+
+```{r}
+url <- "https://www.airlinequality.com/airline-reviews/emirates/page/1/?sortby=post_date%3ADesc&pagesize=100"
+session <- bow(url, user_agent = "Educational")
+session
+webpage <- read_html(url)
+
+ReviewTextP1 <- webpage %>%
+  html_nodes("div.text_content") %>%
+  html_text()
+```
+
+```{r}
+url <- "https://www.airlinequality.com/airline-reviews/emirates/page/2/?sortby=post_date%3ADesc&pagesize=100"
+session <- bow(url, user_agent = "Educational")
+session
+webpage <- read_html(url)
+
+ReviewTextP2 <- webpage %>%
+  html_nodes("div.text_content") %>%
+  html_text()
+```
+
+```{r}
+url <- "https://www.airlinequality.com/airline-reviews/emirates/page/3/?sortby=post_date%3ADesc&pagesize=100"
+session <- bow(url, user_agent = "Educational")
+session
+webpage <- read_html(url)
+
+ReviewTextP3<- webpage %>%
+  html_nodes("div.text_content") %>%
+  html_text()
+```
+
+```{r}
+R1 <- as.data.frame(ReviewTextP1)
+R2 <- as.data.frame(ReviewTextP2)
+R3 <- as.data.frame(ReviewTextP3)
+
+names(R1) <- names(R2) <- names(R3) <- "Emirates Costumer Reviews"
+
+Reviews_300 <- rbind(R1, R2, R3)
+
+View(Reviews_300)
+```
