@@ -2,12 +2,15 @@
 title: "Final Project"
 author: "Group 4"
 date: "2023-12-22"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
 ```{r}
 library(rvest)
 library(httr)
@@ -56,6 +59,54 @@ R3 <- as.data.frame(ReviewTextP3)
 names(R1) <- names(R2) <- names(R3) <- "Emirates Costumer Reviews"
 
 Reviews_300 <- rbind(R1, R2, R3)
+```
 
-View(Reviews_300)
+```{r}
+library(tidytext)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(wordcloud)
+
+# Load the reviews into a tidy format
+tidy_reviews <- Reviews_300 %>%
+  mutate(review_id = row_number()) %>%
+  unnest_tokens(word, "Emirates Costumer Reviews") %>%
+  anti_join(stop_words)  # Remove common stop words
+
+# Perform sentiment analysis
+sentiments <- get_sentiments("bing")
+sentiment_scores <- tidy_reviews %>%
+  inner_join(sentiments, by = "word") %>%
+  count(review_id, sentiment) %>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(overall_sentiment = positive - negative)
+
+# Create a bar plot to visualize sentiment distribution
+ggplot(sentiment_scores, aes(x = review_id, y = overall_sentiment, fill = factor(overall_sentiment > 0))) +
+  geom_col() +
+  scale_fill_manual(values = c("purple", "cyan"), guide = FALSE) +
+  labs(title = "Sentiment Distribution of Reviews",
+       x = "Review ID",
+       y = "Overall Sentiment Score (Positive - Negative)")
+
+# Create word clouds for positive and negative words
+positive_words <- tidy_reviews %>%
+  inner_join(sentiments, by = "word") %>%
+  filter(sentiment == "positive") %>%
+  count(word, sort = TRUE)
+
+negative_words <- tidy_reviews %>%
+  inner_join(sentiments, by = "word") %>%
+  filter(sentiment == "negative") %>%
+  count(word, sort = TRUE)
+# Convert word frequency data to a named vector for wordcloud
+positive_word_freq <- with(positive_words, setNames(n, word))
+negative_word_freq <- with(negative_words, setNames(n, word))
+
+# Create word clouds
+wordcloud(words = names(positive_word_freq), freq = positive_word_freq, scale = c(3, 0.5), max.words = 50, colors = brewer.pal(8, "Dark2"), main = "Positive Words")
+
+wordcloud(words = names(negative_word_freq), freq = negative_word_freq, scale = c(3, 0.5), max.words = 50, colors = brewer.pal(8, "Dark2"), main = "Negative Words")
+
 ```
